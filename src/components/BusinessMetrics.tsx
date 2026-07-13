@@ -571,9 +571,9 @@ export default function BusinessMetrics() {
   const dynamicBufferPercent = Math.max(88, Math.min(94, Math.floor(90 + (ingestRate % 5))));
 
   return (
-    <div className="w-full flex flex-col xl:flex-row gap-4 items-stretch">
+    <div className="w-full grid grid-cols-1 xl:grid-cols-5 gap-3 md:gap-4 lg:gap-5 xl:gap-6 items-stretch">
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-grow">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-5 xl:gap-6 xl:col-span-4">
         <MetricCard
           title={t("kafka_ingest")}
           value={`${formatNumber(ingestRate)} msg/s`}
@@ -625,7 +625,7 @@ export default function BusinessMetrics() {
       </div>
 
       {/* Persistent Kafka Throughput Widget */}
-      <div className="w-full xl:w-[350px] shrink-0">
+      <div className="xl:col-span-1 h-full">
         <KafkaThroughputWidget isLight={isLight} language={language} formatNumber={formatNumber} />
       </div>
     </div>
