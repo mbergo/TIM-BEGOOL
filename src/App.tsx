@@ -18,6 +18,7 @@ import {
   Briefcase
 } from "lucide-react";
 import DeveloperResume from "./components/DeveloperResume";
+import TelemetryTicker from "./components/TelemetryTicker";
 
 export default function App() {
   const { language, setLanguage, theme, setTheme, t } = useApp();
@@ -172,8 +173,9 @@ export default function App() {
         }`}>
           
           {/* Section A: Live Stat Cards (Row on top) */}
-          <div className="shrink-0">
+          <div className="shrink-0 flex flex-col gap-4">
             <BusinessMetrics />
+            <TelemetryTicker />
           </div>
 
           {/* Section B: Simulation Frame Header & Active Map Explorer */}
