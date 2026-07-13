@@ -74,7 +74,6 @@ export default function ProtocolResourceVisualizer() {
   // Dynamic state for live sparkline / metrics fluctuations
   const [pulse, setPulse] = useState(0);
   const [activeTab, setActiveTab] = useState<"visualization" | "comparison">("visualization");
-
   // Local translations
   const tLocal = {
     en: {
@@ -102,7 +101,18 @@ export default function ProtocolResourceVisualizer() {
       cop_success: "System driver re-configured successfully.",
       metric_legend: "Resource Overhead Analysis",
       cpe_res: "CPE Device",
-      stream_res: "Server Node"
+      stream_res: "Server Node",
+      otel_strategy_title: "OTel Instrumentation Strategy & Sampling",
+      otel_strategy_desc: "Calibrate dynamic metric ingestion density. Align cloud parser costs with AI model training fidelity.",
+      prof_aggressive: "Aggressive Filtering",
+      prof_aggressive_desc: "Suppresses steady states. Only relays critical anomalies, maximizing budget savings.",
+      prof_minimal: "Minimal Payload (Balanced)",
+      prof_minimal_desc: "Compresses physical state telemetry into 5-minute averages. Solid default baseline.",
+      prof_full: "Full Diagnostic",
+      prof_full_desc: "Continuous, high-frequency physical layer telemetry stream. Uncompromised root-cause analysis.",
+      est_savings: "Estimated Cloud Ingestion Savings",
+      data_fidelity: "Downstream AI Model Fidelity",
+      roi_projection: "ROI Projection (5.5M Devices)"
     },
     pt: {
       title: "Visualizador de Recursos e Protocolos CPE",
@@ -129,7 +139,18 @@ export default function ProtocolResourceVisualizer() {
       cop_success: "Driver do sistema reconfigurado com sucesso.",
       metric_legend: "Análise de Overhead de Recursos",
       cpe_res: "Dispositivo CPE",
-      stream_res: "Nó do Servidor"
+      stream_res: "Nó do Servidor",
+      otel_strategy_title: "Estratégia de Instrumentação e Amostragem OTel",
+      otel_strategy_desc: "Calibre a granularidade de ingestão. Alinhe custos de nuvem com a fidelidade dos modelos de IA.",
+      prof_aggressive: "Filtragem Agressiva",
+      prof_aggressive_desc: "Suprime estados estáveis. Transmite apenas anomalias críticas, maximizando economia.",
+      prof_minimal: "Payload Mínimo (Equilibrado)",
+      prof_minimal_desc: "Compacta métricas em médias de 5 minutos. Excelente cobertura diagnóstica padrão.",
+      prof_full: "Diagnóstico Completo",
+      prof_full_desc: "Fluxo contínuo de alta frequência. Resolução profunda e irrestrita de problemas na camada física.",
+      est_savings: "Economia de Ingestão na Nuvem (Estimada)",
+      data_fidelity: "Fidelidade do Modelo de IA de Destino",
+      roi_projection: "Projeção de Retorno (5,5M Dispositivos)"
     },
     it: {
       title: "Visualizzatore Risorse & Protocolli CPE",
@@ -156,11 +177,54 @@ export default function ProtocolResourceVisualizer() {
       cop_success: "Driver del sistema riconfigurato con successo.",
       metric_legend: "Analisi dell'Overhead delle Risorse",
       cpe_res: "Dispositivo CPE",
-      stream_res: "Nodo Server"
+      stream_res: "Nodo Server",
+      otel_strategy_title: "Strategia di Campionamento e Strumentazione OTel",
+      otel_strategy_desc: "Calibra la densità di telemetria. Bilancia i costi di cloud parsing con l'accuratezza dei modelli AI.",
+      prof_aggressive: "Filtraggio Aggressivo",
+      prof_aggressive_desc: "Sopprime gli stati stabili. Invia solo anomalie critiche, massimizzando il risparmio.",
+      prof_minimal: "Payload Minimo (Bilanciato)",
+      prof_minimal_desc: "Raggruppa metriche in medie di 5 minuti. Copertura diagnostica standard ideale.",
+      prof_full: "Diagnostica Completa",
+      prof_full_desc: "Flusso continuo di dati fisici ad alta frequenza. Analisi profonda delle cause primarie.",
+      est_savings: "Risparmio di Ingestione Cloud Stimato",
+      data_fidelity: "Fedeltà del Modello AI di Destinazione",
+      roi_projection: "Proiezione ROI (5,5M Dispositivi)"
     }
   };
 
   const text = tLocal[currentLang];
+
+  // Listener to set OTel sampling strategy from external components
+  useEffect(() => {
+    const handleSetOTelSampling = (e: Event) => {
+      const customEvent = e as CustomEvent<{ profile: "aggressive" | "minimal" | "full" }>;
+      if (customEvent.detail && customEvent.detail.profile) {
+        const profile = customEvent.detail.profile;
+        setSamplingProfile(profile);
+        let targetDensity = 60;
+        if (profile === "aggressive") targetDensity = 25;
+        else if (profile === "full") targetDensity = 100;
+        setTelemetryDensity(targetDensity);
+        
+        const profileLabels = {
+          aggressive: "Aggressive Filtering",
+          minimal: "Minimal Payload (Balanced)",
+          full: "Full Diagnostic (Raw Core)"
+        };
+        const syslogEvent = new CustomEvent("syslog-event", {
+          detail: {
+            message: `[OTel-STRATEGY] Configured dynamic OTel sampling to '${profileLabels[profile]}' via closed-loop Backpressure Monitor feedback. Rescaling physical metric bandwidth threshold to ${targetDensity}%.`,
+            level: "info"
+          }
+        });
+        window.dispatchEvent(syslogEvent);
+      }
+    };
+    window.addEventListener("set-otel-sampling", handleSetOTelSampling);
+    return () => {
+      window.removeEventListener("set-otel-sampling", handleSetOTelSampling);
+    };
+  }, []);
 
   // Fluctuations interval to simulate active streams
   useEffect(() => {
@@ -191,6 +255,40 @@ export default function ProtocolResourceVisualizer() {
   ];
 
   const [telemetryDensity, setTelemetryDensity] = useState(80);
+  const [samplingProfile, setSamplingProfile] = useState<"aggressive" | "minimal" | "full">("minimal");
+
+  // Sync profile when telemetryDensity changes
+  useEffect(() => {
+    if (telemetryDensity <= 35) {
+      if (samplingProfile !== "aggressive") setSamplingProfile("aggressive");
+    } else if (telemetryDensity < 85) {
+      if (samplingProfile !== "minimal") setSamplingProfile("minimal");
+    } else {
+      if (samplingProfile !== "full") setSamplingProfile("full");
+    }
+  }, [telemetryDensity]);
+
+  const handleSelectProfile = (profile: "aggressive" | "minimal" | "full") => {
+    setSamplingProfile(profile);
+    let targetDensity = 60;
+    if (profile === "aggressive") targetDensity = 25;
+    else if (profile === "full") targetDensity = 100;
+    setTelemetryDensity(targetDensity);
+
+    // Dispatch a syslog event for high transparency
+    const profileLabels = {
+      aggressive: "Aggressive Filtering",
+      minimal: "Minimal Payload (Balanced)",
+      full: "Full Diagnostic (Raw Core)"
+    };
+    const event = new CustomEvent("syslog-event", {
+      detail: {
+        message: `[OTel-STRATEGY] Configured dynamic OTel sampling to '${profileLabels[profile]}'. Rescaling physical metric bandwidth threshold to ${targetDensity}%.`,
+        level: "info"
+      }
+    });
+    window.dispatchEvent(event);
+  };
 
   const enabledStandardPoints = STANDARD_OTEL_POINTS.filter(p => telemetryDensity >= p.minDensity);
   const enabledVirtualSensors = virtualSensors.filter((_, idx) => {
@@ -630,7 +728,8 @@ ${enabledVirtualSensors.length > 0 ? `\n  // Dynamic OTel Virtual Sensors attach
 
       {/* Main Body */}
       {activeTab === "visualization" ? (
-        <div className="p-5 grid grid-cols-1 xl:grid-cols-12 gap-5">
+        <div className="p-5 flex flex-col gap-5">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
           
           {/* Left panel: Protocol Selection Cards (4 cols) */}
           <div className="xl:col-span-4 flex flex-col gap-3">
@@ -881,6 +980,249 @@ ${enabledVirtualSensors.length > 0 ? `\n  // Dynamic OTel Virtual Sensors attach
                 <code>{activeSpec.payloadTemplate}</code>
               </pre>
             </div>
+          </div>
+        </div>
+
+          {/* OTel Instrumentation Strategy & Sampling Profile Panel */}
+          <div className={`p-5 rounded-2xl border ${
+            isLight ? "bg-slate-50 border-slate-200" : "bg-slate-950/40 border-slate-900"
+          } flex flex-col gap-4 mt-1`}>
+            
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-500/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400">
+                  <ShieldCheck size={16} className="animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-mono font-black uppercase tracking-wider text-sky-400">
+                    {text.otel_strategy_title}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 leading-normal font-medium mt-0.5">
+                    {text.otel_strategy_desc}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-mono font-black px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded">
+                  DYNAMIC COUPLING
+                </span>
+              </div>
+            </div>
+
+            {/* Profile Selector Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {[
+                {
+                  id: "aggressive" as const,
+                  name: text.prof_aggressive,
+                  desc: text.prof_aggressive_desc,
+                  fidelity: 25,
+                  savings: 80,
+                  monthlySavingsVal: "$14,800",
+                  volume: "0.84 TB/day",
+                  color: "sky",
+                  fidelityDesc: language === "pt" ? "Apenas anomalias críticas" : language === "it" ? "Solo anomalie critiche" : "Anomalies & Exceptions only",
+                  badge: language === "pt" ? "Econômico" : language === "it" ? "Economico" : "Budget-Saver"
+                },
+                {
+                  id: "minimal" as const,
+                  name: text.prof_minimal,
+                  desc: text.prof_minimal_desc,
+                  fidelity: 70,
+                  savings: 46,
+                  monthlySavingsVal: "$8,500",
+                  volume: "2.26 TB/day",
+                  color: "indigo",
+                  fidelityDesc: language === "pt" ? "Métricas agregadas em 5 min" : language === "it" ? "Metriche aggregate a 5 min" : "5-min aggregated stats",
+                  badge: language === "pt" ? "Recomendado" : language === "it" ? "Consigliato" : "Optimal Balanced"
+                },
+                {
+                  id: "full" as const,
+                  name: text.prof_full,
+                  desc: text.prof_full_desc,
+                  fidelity: 100,
+                  savings: 0,
+                  monthlySavingsVal: "$0 (Baseline)",
+                  volume: "4.20 TB/day",
+                  color: "rose",
+                  fidelityDesc: language === "pt" ? "Telemetria bruta contínua" : language === "it" ? "Telemetria grezza continua" : "Raw continuous streams",
+                  badge: language === "pt" ? "Máxima Resolução" : language === "it" ? "Massima Risoluzione" : "High-Res Diagnostic"
+                }
+              ].map((strategy) => {
+                const isSelected = samplingProfile === strategy.id;
+                let activeBorder = "border-sky-500 shadow-lg shadow-sky-500/5 bg-sky-500/[0.01]";
+                let badgeStyle = "bg-sky-500/15 text-sky-400 border border-sky-500/25";
+                
+                if (strategy.color === "indigo") {
+                  if (isSelected) activeBorder = "border-indigo-500 shadow-lg shadow-indigo-500/5 bg-indigo-500/[0.01]";
+                  badgeStyle = "bg-indigo-500/15 text-indigo-400 border border-indigo-500/25";
+                } else if (strategy.color === "rose") {
+                  if (isSelected) activeBorder = "border-rose-500 shadow-lg shadow-rose-500/5 bg-rose-500/[0.01]";
+                  badgeStyle = "bg-rose-500/15 text-rose-400 border border-rose-500/25";
+                }
+
+                return (
+                  <button
+                    key={strategy.id}
+                    type="button"
+                    onClick={() => handleSelectProfile(strategy.id)}
+                    className={`p-3.5 rounded-xl border text-left flex flex-col justify-between gap-3.5 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] group ${
+                      isSelected
+                        ? activeBorder
+                        : isLight
+                        ? "border-slate-200 hover:border-slate-300 bg-slate-100/30"
+                        : "border-slate-900/60 hover:border-slate-800 bg-slate-900/20"
+                    }`}
+                  >
+                    <div className="flex flex-col gap-1 w-full">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black tracking-tight text-slate-200 group-hover:text-white flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${
+                            isSelected 
+                              ? strategy.color === "sky" ? "bg-sky-400" : strategy.color === "indigo" ? "bg-indigo-400" : "bg-rose-400"
+                              : "bg-slate-600"
+                          }`} />
+                          <span className={isSelected ? "text-slate-100 font-extrabold" : "text-slate-300 font-bold"}>
+                            {strategy.name}
+                          </span>
+                        </span>
+                        <span className={`text-[8px] font-mono font-extrabold px-1.5 py-0.5 rounded ${badgeStyle}`}>
+                          {strategy.badge}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-normal mt-1.5">
+                        {strategy.desc}
+                      </p>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-slate-500/10 w-full flex flex-col gap-1 text-[9px] font-mono text-slate-500">
+                      <div className="flex justify-between">
+                        <span>{language === "pt" ? "Fidelidade de IA:" : language === "it" ? "Fedeltà AI:" : "AI Model Fidelity:"}</span>
+                        <span className={`font-bold ${
+                          strategy.fidelity >= 90 ? "text-emerald-400" : strategy.fidelity >= 60 ? "text-indigo-400" : "text-sky-400"
+                        }`}>{strategy.fidelity}% ({strategy.fidelityDesc})</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{language === "pt" ? "Uso de Banda:" : language === "it" ? "Banda WAN:" : "WAN Bandwidth:"}</span>
+                        <span className="font-semibold text-slate-300">
+                          {strategy.id === "aggressive" ? "0.2 Mbps" : strategy.id === "minimal" ? "1.1 Mbps" : "3.5 Mbps"} / device
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Savings & Fidelity Comparison Visualizer bars */}
+            <div className={`p-4 rounded-xl border ${
+              isLight ? "bg-white border-slate-100" : "bg-slate-900/40 border-slate-900"
+            } grid grid-cols-1 lg:grid-cols-2 gap-5`}>
+              
+              {/* Cost savings visualization */}
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center text-[11px] font-mono">
+                  <span className="font-bold text-slate-400 flex items-center gap-1">
+                    <DollarSign size={13} className="text-emerald-400" />
+                    {text.est_savings}
+                  </span>
+                  <span className="font-extrabold text-emerald-400 text-xs">
+                    {samplingProfile === "aggressive" ? "80% Savings" : samplingProfile === "minimal" ? "46% Savings" : "0% Savings (Baseline)"}
+                  </span>
+                </div>
+                
+                {/* Visual bar */}
+                <div className="w-full bg-slate-950/60 rounded-full h-3 border border-slate-800 overflow-hidden relative">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700"
+                    style={{ width: `${samplingProfile === "aggressive" ? 80 : samplingProfile === "minimal" ? 46 : 0}%` }}
+                  />
+                  {/* Dynamic Save Indicators */}
+                  <div className="absolute inset-0 flex justify-between items-center px-3 pointer-events-none text-[8.5px] font-mono text-slate-500/80 font-extrabold">
+                    <span>Baseline</span>
+                    <span>Minimal ($8.5k/mo)</span>
+                    <span>Aggressive ($14.8k/mo)</span>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-400 leading-normal mt-1">
+                  {language === "pt" 
+                    ? "Economiza custos operacionais significativos no parser Kafka e no pipeline de dados ETL Databricks reduzindo pacotes redundantes." 
+                    : language === "it"
+                    ? "Riduce i costi operativi nel parser Kafka e nelle pipeline dati Databricks eliminando i pacchetti ridondanti."
+                    : "Reduces operational ingestion parser load and Databricks ETL streaming costs by discarding redundant heartbeat metrics."}
+                </p>
+              </div>
+
+              {/* Data Fidelity visualization */}
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center text-[11px] font-mono">
+                  <span className="font-bold text-slate-400 flex items-center gap-1">
+                    <Activity size={13} className="text-indigo-400" />
+                    {text.data_fidelity}
+                  </span>
+                  <span className={`font-extrabold text-xs ${
+                    samplingProfile === "full" ? "text-emerald-400" : samplingProfile === "minimal" ? "text-indigo-400" : "text-sky-400"
+                  }`}>
+                    {samplingProfile === "full" ? "100% High-Fidelity" : samplingProfile === "minimal" ? "70% Balanced" : "25% Degraded Coverage"}
+                  </span>
+                </div>
+                
+                {/* Visual bar */}
+                <div className="w-full bg-slate-950/60 rounded-full h-3 border border-slate-800 overflow-hidden relative">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      samplingProfile === "full" 
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-400" 
+                        : samplingProfile === "minimal" 
+                        ? "bg-gradient-to-r from-indigo-500 to-indigo-400" 
+                        : "bg-gradient-to-r from-sky-500 to-sky-400"
+                    }`}
+                    style={{ width: `${samplingProfile === "aggressive" ? 25 : samplingProfile === "minimal" ? 70 : 100}%` }}
+                  />
+                  {/* Dynamic Fidelity Markers */}
+                  <div className="absolute inset-0 flex justify-between items-center px-3 pointer-events-none text-[8.5px] font-mono text-slate-500/80 font-extrabold">
+                    <span>Critical Alerts Only</span>
+                    <span>Anomalies Isolated</span>
+                    <span>Continuous High-Res</span>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-400 leading-normal mt-1">
+                  {language === "pt"
+                    ? "Níveis mais altos permitem que os algoritmos de Deep Learning da Beegol prevejam e isolem anomalias de rede sub-milissegundo."
+                    : language === "it"
+                    ? "I livelli più alti consentono agli algoritmi di Deep Learning Beegol di prevedere ed isolare anomalie sub-millisecondo."
+                    : "Higher fidelity levels empower Beegol Deep Learning models to execute proactive root-cause isolation and sub-millisecond anomaly detection."}
+                </p>
+              </div>
+
+            </div>
+
+            {/* Ingestion Projections Banner */}
+            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-900/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[10.5px] font-mono">
+              <span className="text-slate-400 uppercase font-black flex items-center gap-1.5">
+                <Zap size={13} className="text-amber-400 animate-pulse" />
+                {text.roi_projection}:
+              </span>
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">{language === "pt" ? "Volume:" : language === "it" ? "Volume:" : "Data Volume:"}</span>
+                  <strong className="text-slate-200">
+                    {samplingProfile === "aggressive" ? "0.84 TB/day" : samplingProfile === "minimal" ? "2.26 TB/day" : "4.20 TB/day"}
+                  </strong>
+                </div>
+                <div className="w-[1px] h-3 bg-slate-800 hidden sm:block" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">{language === "pt" ? "Economia Realizada:" : language === "it" ? "Risparmio:" : "Saving Realized:"}</span>
+                  <strong className="text-emerald-400">
+                    {samplingProfile === "aggressive" ? "$14,800 / mo" : samplingProfile === "minimal" ? "$8,500 / mo" : "$0 (Baseline)"}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
           </div>
 
         </div>

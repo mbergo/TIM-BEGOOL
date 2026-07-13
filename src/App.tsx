@@ -225,7 +225,7 @@ export default function App() {
           </div>
 
           {/* Section B: Simulation Frame Header & Active Map Explorer */}
-          <div className={`flex-grow flex flex-col border rounded-xl p-5 shadow-2xl relative overflow-hidden min-h-[420px] transition-colors duration-300 ${
+          <div className={`flex-grow flex flex-col border rounded-xl p-5 shadow-2xl relative overflow-hidden min-h-[920px] transition-colors duration-300 ${
             isLight ? "border-slate-200 bg-white" : "border-slate-900 bg-slate-950/30"
           }`}>
             
