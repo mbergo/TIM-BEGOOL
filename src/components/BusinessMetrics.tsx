@@ -59,8 +59,7 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
   const lang = (language === "pt" || language === "it" ? language : "en") as "en" | "pt" | "it";
   const label = localDict[lang];
 
-  // Load mode state
-  const [loadMode, setLoadMode] = useState<"normal" | "high" | "critical">("normal");
+  const { filterBarrier, protocolMode, backpressureValue } = useApp();
 
   // Dynamic values
   const [msgRate, setMsgRate] = useState(1842512);
@@ -77,24 +76,20 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
 
   useEffect(() => {
     const interval = setInterval(() => {
-      // Calculate dynamic base value based on loadMode
-      let baseRate = 1842512;
-      let multiplier = 1;
-      let lagBase = 12;
+      // Calculate dynamic base value based on filtering barrier & protocol modes
+      let baseRate = filterBarrier === "before-kafka" ? 368500 : 1842512;
       
-      if (loadMode === "high") {
-        baseRate = 2245000;
-        multiplier = 1.5;
-        lagBase = 45;
-      } else if (loadMode === "critical") {
-        baseRate = 2890000;
-        multiplier = 2.2;
-        lagBase = 280;
+      if (protocolMode === "tr069") {
+        baseRate = Math.floor(baseRate * 1.35); // synchronous CWMP XML overhead
+      } else if (protocolMode === "gnmi") {
+        baseRate = Math.floor(baseRate * 1.15); // streaming spikes
+      } else if (protocolMode === "otel") {
+        baseRate = Math.floor(baseRate * 0.9);  // highly optimized OTel payload
       }
 
       // Live rate with minor fluctuation
-      const rateFluctuation = Math.floor(Math.random() * 8000 - 4000) * multiplier;
-      const currentRate = Math.max(100000, Math.floor(baseRate + rateFluctuation));
+      const rateFluctuation = Math.floor(Math.random() * 6000 - 3000);
+      const currentRate = Math.max(80000, Math.floor(baseRate + rateFluctuation));
       setMsgRate(currentRate);
 
       // Increment total processed
@@ -108,22 +103,20 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
 
       // Update partition distribution
       setPartitionRates(() => {
-        const p0 = Math.floor(currentRate * 0.25 + (Math.random() * 1200 - 600));
-        const p1 = Math.floor(currentRate * 0.24 + (Math.random() * 1200 - 600));
-        const p2 = Math.floor(currentRate * 0.26 + (Math.random() * 1200 - 600));
-        const p3 = currentRate - (p0 + p1 + p2);
+        const p0 = Math.floor(currentRate * 0.25 + (Math.random() * 400 - 200));
+        const p1 = Math.floor(currentRate * 0.24 + (Math.random() * 400 - 200));
+        const p2 = Math.floor(currentRate * 0.26 + (Math.random() * 400 - 200));
+        const p3 = Math.max(10, currentRate - (p0 + p1 + p2));
         return [p0, p1, p2, p3];
       });
 
-      // Consumer lag fluctuation
-      setConsumerLag(prev => {
-        const targetLag = lagBase + Math.floor(Math.random() * 10 - 5);
-        return Math.max(1, targetLag);
-      });
+      // Consumer lag synced to global backpressureValue state
+      const targetLag = Math.floor(backpressureValue * 2.8 + Math.random() * 4 - 2);
+      setConsumerLag(Math.max(1, targetLag));
     }, 500);
 
     return () => clearInterval(interval);
-  }, [loadMode]);
+  }, [filterBarrier, protocolMode, backpressureValue]);
 
   // SVG dimensions for real-time sparkline
   const width = 310;
@@ -143,8 +136,10 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
     ? `${pathLine} L ${width} ${height} L 0 ${height} Z`
     : "";
 
-  // Color theme for widget
-  const color = loadMode === "critical" ? "#ef4444" : loadMode === "high" ? "#fbbf24" : "#38bdf8";
+  // Color theme for widget based on backpressure thresholds
+  const isCongested = backpressureValue > 45;
+  const isCritical = backpressureValue > 70;
+  const color = isCritical ? "#ef4444" : isCongested ? "#fbbf24" : "#10b981";
 
   return (
     <div className={`rounded-xl border p-4 flex flex-col justify-between shadow-lg relative overflow-hidden h-full transition-all duration-300 ${
@@ -174,13 +169,13 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
         
         {/* Dynamic Status Badge */}
         <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
-          loadMode === "critical"
+          isCritical
             ? "bg-red-500/10 text-red-500 border-red-500/20"
-            : loadMode === "high"
+            : isCongested
             ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
             : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
         }`}>
-          {loadMode === "critical" ? "CRITICAL" : loadMode === "high" ? "HIGH LOAD" : "OPTIMAL"}
+          {isCritical ? "CRITICAL LAG" : isCongested ? "HIGH LOAD" : "OPTIMAL"}
         </span>
       </div>
 
@@ -207,7 +202,7 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
       }`}>
         <svg className="w-full h-full overflow-visible" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
           <defs>
-            <linearGradient id={`gradient-${loadMode}`} x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="gradient-kafka-svg" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={color} stopOpacity="0.25" />
               <stop offset="100%" stopColor={color} stopOpacity="0.0" />
             </linearGradient>
@@ -217,7 +212,7 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
           <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke={isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"} strokeDasharray="3 3" />
           
           {/* Sparkline Area path */}
-          {pathArea && <path d={pathArea} fill={`url(#gradient-${loadMode})`} className="transition-all duration-300" />}
+          {pathArea && <path d={pathArea} fill="url(#gradient-kafka-svg)" className="transition-all duration-300" />}
           
           {/* Sparkline Line path */}
           {pathLine && <path d={pathLine} fill="none" stroke={color} strokeWidth="2.0" strokeLinecap="round" strokeLinejoin="round" className="transition-all duration-300" />}
@@ -232,7 +227,7 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
         <div className="absolute bottom-1 right-2 flex items-center gap-1.5">
           <span className="text-[9px] font-mono text-slate-500">{label.lag}:</span>
           <span className={`text-[9px] font-mono font-black ${
-            consumerLag > 200 ? "text-rose-500" : consumerLag > 35 ? "text-amber-500" : "text-emerald-500"
+            consumerLag > 120 ? "text-rose-500" : consumerLag > 35 ? "text-amber-500" : "text-emerald-500"
           }`}>
             {consumerLag} ms
           </span>
@@ -244,8 +239,8 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
         <div className="flex justify-between items-center mb-1 text-[9px] font-mono text-slate-500">
           <span>{label.partitions} (0-3)</span>
           <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Active Sync
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Live Sync
           </span>
         </div>
         <div className="grid grid-cols-4 gap-1.5">
@@ -265,10 +260,10 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
                   <span className="text-[8px] font-mono text-slate-500">P{i}</span>
                   {/* Blinking indicator dot */}
                   <span 
-                    className="w-1.5 h-1.5 rounded-full animate-ping" 
+                    className="w-1.5 h-1.5 rounded-full" 
                     style={{ 
                       backgroundColor: color, 
-                      animationDuration: animDuration 
+                      animation: `pulse ${animDuration} cubic-bezier(0.4, 0, 0.6, 1) infinite`
                     }} 
                   />
                 </div>
@@ -292,36 +287,14 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
         </div>
       </div>
 
-      {/* Interactive Load Control Panel */}
-      <div className={`p-1.5 rounded-xl border flex items-center justify-between gap-1.5 ${
+      {/* Dynamic System Optimization Indicator */}
+      <div className={`p-2 rounded-xl border flex items-center justify-between text-[10px] font-mono ${
         isLight ? "bg-slate-50 border-slate-100" : "bg-slate-950/60 border-slate-850"
       }`}>
-        <span className="text-[9px] font-black font-mono uppercase tracking-wider text-slate-500 pl-1.5 flex items-center gap-1">
-          <Sliders size={10} className="text-slate-500" />
-          {label.load_control}
+        <span className="text-slate-500">Filtering Barrier:</span>
+        <span className={`font-black uppercase tracking-wider ${filterBarrier === "before-kafka" ? "text-emerald-400" : "text-rose-450 animate-pulse"}`}>
+          {filterBarrier === "before-kafka" ? "EDGE (NiFi)" : "POST (DBR)"}
         </span>
-        
-        <div className="flex gap-1 flex-grow justify-end">
-          {(["normal", "high", "critical"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setLoadMode(mode)}
-              className={`px-2 py-1 rounded-lg text-[9px] font-mono font-bold transition-all cursor-pointer ${
-                loadMode === mode
-                  ? mode === "critical"
-                    ? "bg-red-500 text-white shadow-md font-black"
-                    : mode === "high"
-                    ? "bg-amber-500 text-slate-950 shadow-md font-black"
-                    : "bg-sky-500 text-slate-950 shadow-md font-black"
-                  : isLight 
-                  ? "text-slate-600 hover:bg-slate-100" 
-                  : "text-slate-400 hover:bg-slate-900"
-              }`}
-            >
-              {mode === "normal" ? label.normal : mode === "high" ? label.high : label.spike}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -487,7 +460,7 @@ function MetricCard({
 }
 
 export default function BusinessMetrics() {
-  const { t, theme, language } = useApp();
+  const { t, theme, language, filterBarrier, protocolMode, backpressureValue } = useApp();
   
   // Real-time values upgraded to 1.8M baseline
   const [ingestRate, setIngestRate] = useState(1842512);
@@ -514,29 +487,45 @@ export default function BusinessMetrics() {
   // Real-time telemetry generator
   useEffect(() => {
     const timer = setInterval(() => {
-      // 1. Kafka Ingest Rate (~1.84M msg/s)
-      const newIngest = Math.floor(1842512 + (Math.random() * 12000 - 6000));
+      // 1. Kafka Ingest Rate (~1.84M msg/s) synced to global filtering states!
+      let baseRate = filterBarrier === "before-kafka" ? 368500 : 1842512;
+      
+      if (protocolMode === "tr069") {
+        baseRate = Math.floor(baseRate * 1.35); // SOAP CWMP XML overhead
+      } else if (protocolMode === "gnmi") {
+        baseRate = Math.floor(baseRate * 1.15); // streaming spikes
+      } else if (protocolMode === "otel") {
+        baseRate = Math.floor(baseRate * 0.9);  // optimal OTel push
+      }
+
+      const rateFluctuation = Math.floor(Math.random() * 10000 - 5000);
+      const newIngest = Math.max(80000, Math.floor(baseRate + rateFluctuation));
       setIngestRate(newIngest);
       setIngestHistory(prev => [...prev.slice(1), newIngest]);
 
-      // 2. Beegol ML Accuracy (fluctuating around 98.42%)
-      const newAccuracy = Number((98.38 + Math.random() * 0.08).toFixed(2));
+      // 2. Beegol ML Accuracy (higher with clean edge telemetry)
+      const isFiltered = filterBarrier === "before-kafka";
+      const baseAccuracy = isFiltered ? 99.12 : 98.38;
+      const newAccuracy = Number((baseAccuracy + Math.random() * 0.08).toFixed(2));
       setAccuracy(newAccuracy);
       setAccuracyHistory(prev => [...prev.slice(1), newAccuracy]);
 
       // 3. Automated self-heals per hour (~1,842 devices/hour)
-      const newFixes = Math.floor(1842 + (Math.random() * 20 - 10));
+      const baseFixes = isFiltered ? 2120 : 1842;
+      const newFixes = Math.floor(baseFixes + (Math.random() * 20 - 10));
       setFixesRate(newFixes);
       setFixesHistory(prev => [...prev.slice(1), newFixes]);
 
       // 4. TIM Monthly OPEX retained (~€180,000/month)
-      const newOpex = Math.floor(180000 + (Math.random() * 600 - 300));
+      // If we are filtering before Kafka (edge NiFi), TIM saves a lot of cloud ingress fees!
+      const baseOpex = isFiltered ? 245000 : 180000;
+      const newOpex = Math.floor(baseOpex + (Math.random() * 600 - 300));
       setOpexRetained(newOpex);
       setOpexHistory(prev => [...prev.slice(1), newOpex]);
     }, 2500);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [filterBarrier, protocolMode]);
 
   const formatNumber = (num: number) => {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -571,7 +560,7 @@ export default function BusinessMetrics() {
   const dynamicBufferPercent = Math.max(88, Math.min(94, Math.floor(90 + (ingestRate % 5))));
 
   return (
-    <div className="w-full grid grid-cols-1 xl:grid-cols-5 gap-3 md:gap-4 lg:gap-5 xl:gap-6 items-stretch">
+    <div id="business-metrics" className="w-full grid grid-cols-1 xl:grid-cols-5 gap-3 md:gap-4 lg:gap-5 xl:gap-6 items-stretch">
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-5 xl:gap-6 xl:col-span-4">
         <MetricCard

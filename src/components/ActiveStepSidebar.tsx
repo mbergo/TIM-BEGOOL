@@ -220,7 +220,7 @@ export default function ActiveStepSidebar({ activeStepId }: ActiveStepSidebarPro
   const isLight = theme === "light";
 
   return (
-    <div className={`h-full border-l flex flex-col p-6 overflow-y-auto select-none gap-6 transition-colors duration-300 ${
+    <div id="active-step-sidebar" className={`h-full border-l flex flex-col p-6 overflow-y-auto select-none gap-6 transition-colors duration-300 ${
       isLight ? "bg-white border-slate-200 text-slate-800" : "bg-slate-950/80 border-slate-900 text-slate-100"
     }`}>
       

@@ -11,21 +11,48 @@ interface LogsTerminalProps {
 export default function LogsTerminal({ activeStepId }: LogsTerminalProps) {
   const { language, theme, t } = useApp();
   const terminalEndRef = useRef<HTMLDivElement>(null);
+  const [customLogs, setCustomLogs] = React.useState<{ id: number; log: string; level: string; time: string }[]>([]);
 
   const steps = getLocalizedPipelineSteps(language);
   const activeStep = steps.find(s => s.id === activeStepId) || steps[0];
 
   const isLight = theme === "light";
 
-  // Auto scroll terminal logs when step changes
+  // Listen to dynamic syslog events dispatched from user interactive controls
+  useEffect(() => {
+    const handleEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ message: string; level: string }>;
+      if (customEvent.detail) {
+        setCustomLogs(prev => [
+          ...prev,
+          {
+            id: Date.now() + Math.random(),
+            log: customEvent.detail.message,
+            level: customEvent.detail.level,
+            time: new Date().toLocaleTimeString([], { hour12: false })
+          }
+        ]);
+      }
+    };
+
+    window.addEventListener("syslog-event", handleEvent);
+    return () => window.removeEventListener("syslog-event", handleEvent);
+  }, []);
+
+  // Clear custom logs when active step changes to prevent mixing steps
+  useEffect(() => {
+    setCustomLogs([]);
+  }, [activeStepId]);
+
+  // Auto scroll terminal logs when step or custom logs change
   useEffect(() => {
     if (terminalEndRef.current) {
       terminalEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [activeStepId]);
+  }, [activeStepId, customLogs]);
 
   return (
-    <div className={`flex flex-col h-full p-4 rounded-xl border shadow-2xl relative overflow-hidden transition-colors duration-300 ${
+    <div id="logs-terminal" className={`flex flex-col h-full p-4 rounded-xl border shadow-2xl relative overflow-hidden transition-colors duration-300 ${
       isLight ? "bg-white border-slate-200" : "bg-slate-950 border-slate-800"
     }`}>
       
@@ -81,6 +108,29 @@ export default function LogsTerminal({ activeStepId }: LogsTerminalProps) {
                 [{new Date().toLocaleTimeString([], { hour12: false })}]
               </span>
               <span className={logColor}>{renderInteractiveText(log)}</span>
+            </div>
+          );
+        })}
+
+        {customLogs.map((item) => {
+          let logColor = isLight ? "text-slate-700" : "text-slate-300";
+          if (item.level === "warning") logColor = isLight ? "text-amber-700 font-bold" : "text-amber-400 font-bold";
+          if (item.level === "success") logColor = isLight ? "text-emerald-700 font-extrabold" : "text-emerald-400 font-extrabold";
+          if (item.level === "danger") logColor = isLight ? "text-rose-700 font-black" : "text-rose-400 font-black";
+          if (item.level === "info") logColor = isLight ? "text-sky-700 font-bold" : "text-sky-400";
+
+          return (
+            <div 
+              key={item.id} 
+              className={`leading-relaxed break-words font-mono transition-colors duration-150 py-0.5 px-1 rounded ${
+                isLight ? "bg-slate-100 hover:bg-slate-200" : "bg-sky-500/5 hover:bg-sky-500/10 border border-sky-500/10"
+              }`}
+              style={{ fontSize: "15px" }}
+            >
+              <span className={`select-none mr-2 ${isLight ? "text-slate-400" : "text-slate-600"}`}>
+                [{item.time}]
+              </span>
+              <span className={logColor}>{renderInteractiveText(item.log)}</span>
             </div>
           );
         })}

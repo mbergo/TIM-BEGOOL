@@ -15,16 +15,22 @@ import {
   TrendingUp, 
   Sun, 
   Moon,
-  Briefcase
+  Briefcase,
+  HelpCircle
 } from "lucide-react";
 import DeveloperResume from "./components/DeveloperResume";
 import TelemetryTicker from "./components/TelemetryTicker";
+import WalkthroughTour from "./components/WalkthroughTour";
+import PipelineArchitectureController from "./components/PipelineArchitectureController";
 
 export default function App() {
   const { language, setLanguage, theme, setTheme, t } = useApp();
   const [activeStepId, setActiveStepId] = useState("user-cpe");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isResumeOpen, setIsResumeOpen] = useState(false);
+  const [isTourActive, setIsTourActive] = useState(() => {
+    return localStorage.getItem("beegol_walkthrough_completed") !== "true";
+  });
 
   const steps = getLocalizedPipelineSteps(language);
   const activeIndex = steps.findIndex((s) => s.id === activeStepId);
@@ -123,6 +129,16 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {/* Onboarding Guided Tour Button */}
+          <button
+            onClick={() => setIsTourActive(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 dark:text-indigo-400 border border-indigo-500/30 text-xs font-mono font-black transition-all cursor-pointer shadow-md"
+            title="Start Interactive Onboarding Tour"
+          >
+            <HelpCircle size={13} className="text-indigo-500 animate-pulse" />
+            <span>QUICK TOUR</span>
+          </button>
 
           {/* Developer CV Button */}
           <button
@@ -280,6 +296,11 @@ export default function App() {
 
           </div>
 
+          {/* Real-time Ingestion Filter Strategy & Multi-Protocol Emulator */}
+          <div className="shrink-0">
+            <PipelineArchitectureController />
+          </div>
+
           {/* Section C: Dual Diagnostic & Logging Consoles (Bottom Row) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[240px] shrink-0">
             {/* Bottom-Left: Live AI Anomaly spectrum graph */}
@@ -304,6 +325,9 @@ export default function App() {
 
       {/* Developer Resume Overlay */}
       <DeveloperResume isOpen={isResumeOpen} onClose={() => setIsResumeOpen(false)} isLight={isLight} />
+
+      {/* Guided Walkthrough Tour */}
+      <WalkthroughTour active={isTourActive} onClose={() => setIsTourActive(false)} />
     </div>
   );
 }

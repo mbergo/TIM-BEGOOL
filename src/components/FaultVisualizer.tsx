@@ -56,7 +56,7 @@ export default function FaultVisualizer() {
   };
 
   return (
-    <div className={`flex flex-col h-full p-5 rounded-2xl border-2 shadow-3xl relative overflow-hidden transition-all duration-300 ${
+    <div id="fault-visualizer" className={`flex flex-col h-full p-5 rounded-2xl border-2 shadow-3xl relative overflow-hidden transition-all duration-300 ${
       isLight ? "bg-white border-slate-200" : "bg-slate-950/45 border-slate-800"
     }`}>
       {/* Visual Header */}

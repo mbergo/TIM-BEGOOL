@@ -344,7 +344,7 @@ interface NetworkSimulationProps {
 }
 
 export default function NetworkSimulation({ activeStepId }: NetworkSimulationProps) {
-  const { language, theme, t } = useApp();
+  const { language, theme, t, filterBarrier, protocolMode, backpressureValue, setFilterBarrier, setBackpressureValue } = useApp();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -360,11 +360,11 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [activePathsOnly, setActivePathsOnly] = useState(false);
 
-  // Kafka Topic Congestion / Latency Toggles
-  const [modemImpact, setModemImpact] = useState<"optimized" | "congested">("optimized");
-  const [docsImpact, setDocsImpact] = useState<"optimized" | "congested">("congested"); // Default docs congested to demonstrate differential flow
+  // Derive modem and DOCS flows congestion status from global backpressure and filtering states!
+  const modemImpact = filterBarrier === "before-kafka" ? "optimized" : (backpressureValue > 45 ? "congested" : "optimized");
+  const docsImpact = filterBarrier === "before-kafka" ? "optimized" : (backpressureValue > 25 ? "congested" : "optimized");
 
-  // Real-time Load (representing 1.8M msg throughput)
+  // Real-time Load (representing dynamic messages throughput)
   const [realTimeLoad, setRealTimeLoad] = useState(1842512);
 
   // Utility to format throughput rate with commas
@@ -375,17 +375,21 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
   useEffect(() => {
     const interval = setInterval(() => {
       // Fluctuates around a baseline of 1.8M depending on the network toggles
-      let baseline = 1842512;
-      if (modemImpact === "congested" && docsImpact === "congested") {
-        baseline = 2450000; // elevated under critical congestion
-      } else if (modemImpact === "congested" || docsImpact === "congested") {
-        baseline = 2120000; // elevated under partial congestion
+      let baseline = filterBarrier === "before-kafka" ? 368500 : 1842512;
+      
+      if (protocolMode === "tr069") {
+        baseline = Math.floor(baseline * 1.35); // SOAP CWMP XML overhead
+      } else if (protocolMode === "gnmi") {
+        baseline = Math.floor(baseline * 1.15); // streaming spikes
+      } else if (protocolMode === "otel") {
+        baseline = Math.floor(baseline * 0.9);  // optimal telemetry agents
       }
+
       const fluctuation = Math.floor(Math.random() * 24000 - 12000);
-      setRealTimeLoad(baseline + fluctuation);
+      setRealTimeLoad(Math.max(80000, baseline + fluctuation));
     }, 1000);
     return () => clearInterval(interval);
-  }, [modemImpact, docsImpact]);
+  }, [filterBarrier, protocolMode]);
 
   // Synchronize localized nodes when language changes
   useEffect(() => {
@@ -857,7 +861,10 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => setModemImpact("optimized")}
+                onClick={() => {
+                  setFilterBarrier("before-kafka");
+                  setBackpressureValue(12);
+                }}
                 className={`flex-1 py-1 rounded-lg text-[10px] font-mono font-bold transition-all hover:scale-[1.04] active:scale-[0.96] cursor-pointer ${
                   modemImpact === "optimized"
                     ? "bg-emerald-500 text-slate-950 shadow-md font-black shadow-[0_0_12px_rgba(16,185,129,0.3)]"
@@ -867,7 +874,10 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
                 {t("optimized_label")}
               </button>
               <button
-                onClick={() => setModemImpact("congested")}
+                onClick={() => {
+                  setFilterBarrier("after-kafka");
+                  setBackpressureValue(55);
+                }}
                 className={`flex-1 py-1 rounded-lg text-[10px] font-mono font-bold transition-all hover:scale-[1.04] active:scale-[0.96] cursor-pointer ${
                   modemImpact === "congested"
                     ? "bg-rose-500 text-white shadow-md font-black shadow-[0_0_12px_rgba(239,68,68,0.3)]"
@@ -902,7 +912,10 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => setDocsImpact("optimized")}
+                onClick={() => {
+                  setFilterBarrier("before-kafka");
+                  setBackpressureValue(12);
+                }}
                 className={`flex-1 py-1 rounded-lg text-[10px] font-mono font-bold transition-all hover:scale-[1.04] active:scale-[0.96] cursor-pointer ${
                   docsImpact === "optimized"
                     ? "bg-emerald-500 text-slate-950 shadow-md font-black shadow-[0_0_12px_rgba(16,185,129,0.3)]"
@@ -912,7 +925,10 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
                 {t("optimized_label")}
               </button>
               <button
-                onClick={() => setDocsImpact("congested")}
+                onClick={() => {
+                  setFilterBarrier("after-kafka");
+                  setBackpressureValue(82);
+                }}
                 className={`flex-1 py-1 rounded-lg text-[10px] font-mono font-bold transition-all hover:scale-[1.04] active:scale-[0.96] cursor-pointer ${
                   docsImpact === "congested"
                     ? "bg-rose-500 text-white shadow-md font-black shadow-[0_0_12px_rgba(239,68,68,0.3)]"

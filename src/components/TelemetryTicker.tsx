@@ -185,7 +185,7 @@ export default function TelemetryTicker() {
   const marqueeItems = [...anomalies, ...anomalies];
 
   return (
-    <div className={`w-full border rounded-xl overflow-hidden flex items-center relative select-none shadow-md ${
+    <div id="telemetry-ticker" className={`w-full border rounded-xl overflow-hidden flex items-center relative select-none shadow-md ${
       isLight 
         ? "bg-slate-50 border-slate-200/80 text-slate-700" 
         : "bg-slate-950/60 border-slate-900/80 text-slate-300"

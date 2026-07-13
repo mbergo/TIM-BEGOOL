@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 
 export type Language = "en" | "pt" | "it";
 export type Theme = "dark" | "light";
+export type FilterBarrier = "before-kafka" | "after-kafka";
+export type ProtocolMode = "tr069" | "tr369" | "mqtt" | "gnmi" | "otel";
 
 interface AppContextType {
   language: Language;
@@ -9,6 +11,15 @@ interface AppContextType {
   setLanguage: (lang: Language) => void;
   setTheme: (theme: Theme) => void;
   t: (key: string) => string;
+  // Dynamic Simulation & Ingestion states
+  filterBarrier: FilterBarrier;
+  setFilterBarrier: (barrier: FilterBarrier) => void;
+  protocolMode: ProtocolMode;
+  setProtocolMode: (mode: ProtocolMode) => void;
+  activeRemediation: string | null;
+  setActiveRemediation: (action: string | null) => void;
+  backpressureValue: number;
+  setBackpressureValue: (val: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -683,6 +694,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [theme, setThemeState] = useState<Theme>("dark");
 
+  // New Simulation States
+  const [filterBarrier, setFilterBarrier] = useState<FilterBarrier>("before-kafka");
+  const [protocolMode, setProtocolMode] = useState<ProtocolMode>("tr369");
+  const [activeRemediation, setActiveRemediation] = useState<string | null>(null);
+  const [backpressureValue, setBackpressureValue] = useState<number>(14);
+
   // Load from localStorage if present
   useEffect(() => {
     const savedTheme = localStorage.getItem("beegol_theme") as Theme;
@@ -707,7 +724,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ language, theme, setLanguage, setTheme, t }}>
+    <AppContext.Provider 
+      value={{ 
+        language, 
+        theme, 
+        setLanguage, 
+        setTheme, 
+        t,
+        filterBarrier,
+        setFilterBarrier,
+        protocolMode,
+        setProtocolMode,
+        activeRemediation,
+        setActiveRemediation,
+        backpressureValue,
+        setBackpressureValue
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
