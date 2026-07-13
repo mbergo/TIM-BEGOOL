@@ -364,6 +364,29 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
   const [modemImpact, setModemImpact] = useState<"optimized" | "congested">("optimized");
   const [docsImpact, setDocsImpact] = useState<"optimized" | "congested">("congested"); // Default docs congested to demonstrate differential flow
 
+  // Real-time Load (representing 1.8M msg throughput)
+  const [realTimeLoad, setRealTimeLoad] = useState(1842512);
+
+  // Utility to format throughput rate with commas
+  const formatNumber = (num: number) => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Fluctuates around a baseline of 1.8M depending on the network toggles
+      let baseline = 1842512;
+      if (modemImpact === "congested" && docsImpact === "congested") {
+        baseline = 2450000; // elevated under critical congestion
+      } else if (modemImpact === "congested" || docsImpact === "congested") {
+        baseline = 2120000; // elevated under partial congestion
+      }
+      const fluctuation = Math.floor(Math.random() * 24000 - 12000);
+      setRealTimeLoad(baseline + fluctuation);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [modemImpact, docsImpact]);
+
   // Synchronize localized nodes when language changes
   useEffect(() => {
     const updated = getLocalizedNodes(language);
@@ -380,6 +403,7 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
   const isLightRef = useRef(isLight);
   const modemImpactRef = useRef(modemImpact);
   const docsImpactRef = useRef(docsImpact);
+  const realTimeLoadRef = useRef(realTimeLoad);
 
   useEffect(() => {
     activeStepIdRef.current = activeStepId;
@@ -404,6 +428,10 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
   useEffect(() => {
     docsImpactRef.current = docsImpact;
   }, [docsImpact]);
+
+  useEffect(() => {
+    realTimeLoadRef.current = realTimeLoad;
+  }, [realTimeLoad]);
 
   // Latency helper computations
   const calcClusterLatency = () => {
@@ -476,9 +504,11 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
 
       ctx.beginPath();
       if (isActive) {
-        ctx.lineWidth = flowCongestion ? 5.5 : 4.0; // Thicker if congested
+        // Incorporate realTimeLoad throughput ratio
+        const loadRatio = realTimeLoadRef.current / 1842512;
+        ctx.lineWidth = (flowCongestion ? 5.5 : 4.0) * Math.sqrt(loadRatio); // Thicker if congested and scaled with load
         ctx.strokeStyle = flowCongestion ? "#d946ef" : edge.particleColor; // Glowing purple if congested
-        ctx.shadowBlur = flowCongestion ? 6 : 4; // Reduced glow on the connections
+        ctx.shadowBlur = (flowCongestion ? 6 : 4) * loadRatio; // Glowing intensity based on load
         ctx.shadowColor = flowCongestion ? "#d946ef" : edge.particleColor;
       } else {
         ctx.lineWidth = 1.5;
@@ -524,15 +554,19 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
         const rateModifier = isActive ? 0.4 : 0.08; 
         const congestionRateBonus = flowCongestion ? 0.35 : 0;
         
-        if (Math.random() < (edge.particleRate * rateModifier + (isActive ? 0.3 : 0) + congestionRateBonus)) {
+        // Scale probability dynamically with the realTimeLoad throughput ratio
+        const loadRatio = realTimeLoadRef.current / 1842512;
+        const spawnProbability = (edge.particleRate * rateModifier + (isActive ? 0.3 : 0) + congestionRateBonus) * loadRatio;
+
+        if (Math.random() < spawnProbability) {
           particles.push({
             id: particleIdCounter++,
             edge,
             progress: 0,
             // If congested, particles move much slower to represent backlog delay
-            speed: flowCongestion
+            speed: (flowCongestion
               ? 0.0012 + (Math.random() * 0.0006)
-              : (isActive ? 0.007 : 0.0035) + (Math.random() * 0.003)
+              : (isActive ? 0.007 : 0.0035) + (Math.random() * 0.003)) * Math.sqrt(loadRatio)
           });
         }
       });
@@ -766,6 +800,18 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
             : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
         }`}>
           {getLatencyText()}
+        </span>
+
+        {/* Live 1.8M Throughput representation indicator */}
+        <span className={`text-[10px] font-mono border px-3 py-1.5 rounded-xl shadow-2xl font-black transition-all duration-300 flex items-center gap-1.5 ${
+          isCritical
+            ? "bg-rose-500/10 border-rose-500/40 text-rose-500 dark:text-rose-400 animate-pulse"
+            : isLight
+            ? "bg-sky-50 border-sky-200 text-sky-700"
+            : "bg-sky-950/40 border-sky-500/30 text-sky-400"
+        }`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping" />
+          <span>THROUGHPUT: {formatNumber(realTimeLoad)} MSG/S</span>
         </span>
       </div>
 
@@ -1094,6 +1140,12 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
 
             const isRightSide = ["kafka", "etl", "ai"].includes(node.type);
 
+            // Dynamic throughput variables based on 1.8M base msg/s load
+            const loadRatio = realTimeLoad / 1842512;
+            const pulseDuration = `${Math.max(0.3, Math.min(2.5, 1.2 / loadRatio))}s`;
+            const pulseOpacity = Math.max(0.12, Math.min(0.85, 0.28 * loadRatio));
+            const nodeOpacity = isNodeActive ? Math.min(1.0, 0.85 + (loadRatio - 1) * 0.15) : undefined;
+
             return (
               <div 
                 key={node.id} 
@@ -1117,11 +1169,17 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
                   <span className={`text-[7px] font-mono font-black ${isLight ? "text-slate-600" : "text-slate-300"}`}>DRAG</span>
                 </div>
 
-                {/* Pulsating status ring */}
+                {/* Pulsating status ring with dynamic pulse frequency and opacity */}
                 {isNodeActive && (
                   <div 
-                    className="absolute w-24 h-24 rounded-full animate-ping opacity-25 pointer-events-none"
-                    style={{ backgroundColor: node.color }}
+                    className="absolute rounded-full pointer-events-none"
+                    style={{ 
+                      backgroundColor: node.color,
+                      width: '96px',
+                      height: '96px',
+                      animation: `ping ${pulseDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
+                      opacity: pulseOpacity,
+                    }}
                   />
                 )}
 
@@ -1130,7 +1188,7 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
                   onMouseDown={(e) => startNodeDrag(node.id, node.x, node.y, e)}
                   className={`flex flex-col items-center justify-center rounded-2xl border transition-all duration-300 cursor-grab active:cursor-grabbing select-none relative overflow-hidden ${boxSize} ${
                     isNodeActive 
-                      ? "scale-110 ring-3 ring-sky-500/35 shadow-[0_0_30px_rgba(56,189,248,0.4)] bg-slate-950/95" 
+                      ? "scale-110 ring-3 ring-sky-500/35 bg-slate-950/95" 
                       : isLight 
                       ? "opacity-80 hover:opacity-100 bg-white border-slate-200" 
                       : "opacity-75 hover:opacity-100 bg-slate-950/95 border-slate-800"
@@ -1139,10 +1197,11 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
                   }`}
                   style={{ 
                     borderColor: isNodeActive ? node.color : "rgba(148, 163, 184, 0.45)", 
+                    opacity: nodeOpacity,
                     boxShadow: isNodeActive 
                       ? (isRightSide 
-                          ? `0 0 35px ${node.color}88, 0 0 15px rgba(244,63,94,0.4)` 
-                          : `0 0 28px ${node.color}55`)
+                          ? `0 0 ${Math.round(35 * loadRatio)}px ${node.color}88, 0 0 ${Math.round(15 * loadRatio)}px rgba(244,63,94,0.4)` 
+                          : `0 0 ${Math.round(28 * loadRatio)}px ${node.color}55`)
                       : `0 0 10px rgba(0,0,0,0.15)`
                   }}
                 >

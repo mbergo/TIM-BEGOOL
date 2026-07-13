@@ -14,13 +14,16 @@ import {
   RotateCcw, 
   TrendingUp, 
   Sun, 
-  Moon 
+  Moon,
+  Briefcase
 } from "lucide-react";
+import DeveloperResume from "./components/DeveloperResume";
 
 export default function App() {
   const { language, setLanguage, theme, setTheme, t } = useApp();
   const [activeStepId, setActiveStepId] = useState("user-cpe");
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isResumeOpen, setIsResumeOpen] = useState(false);
 
   const steps = getLocalizedPipelineSteps(language);
   const activeIndex = steps.findIndex((s) => s.id === activeStepId);
@@ -119,6 +122,16 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {/* Developer CV Button */}
+          <button
+            onClick={() => setIsResumeOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 dark:text-sky-400 border border-sky-500/30 text-xs font-mono font-black transition-all cursor-pointer shadow-md"
+            title="View Developer CV / Resume"
+          >
+            <Briefcase size={13} />
+            <span>DEV RESUME</span>
+          </button>
 
           {/* Interactive Light / Dark Theme Switcher */}
           <button
@@ -286,6 +299,9 @@ export default function App() {
         </aside>
 
       </div>
+
+      {/* Developer Resume Overlay */}
+      <DeveloperResume isOpen={isResumeOpen} onClose={() => setIsResumeOpen(false)} isLight={isLight} />
     </div>
   );
 }
