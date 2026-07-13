@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <script>
+      // Defensive stub for chrome extension runtime errors within sandboxed iframes
+      (function() {
+        try {
+          if (typeof window !== 'undefined') {
+            if (!window.chrome) {
+              window.chrome = {};
+            }
+            if (!window.chrome.runtime) {
+              window.chrome.runtime = {
+                onMessage: {
+                  addListener: function() {},
+                  removeListener: function() {},
+                  hasListener: function() { return false; },
+                  hasListeners: function() { return false; }
+                },
+                sendMessage: function() {},
+                connect: function() {
+                  return {
+                    onMessage: { addListener: function() {} },
+                    postMessage: function() {},
+                    disconnect: function() {}
+                  };
+                }
+              };
+            } else if (!window.chrome.runtime.onMessage) {
+              window.chrome.runtime.onMessage = {
+                addListener: function() {},
+                removeListener: function() {},
+                hasListener: function() { return false; },
+                hasListeners: function() { return false; }
+              };
+            }
+          }
+        } catch (e) {
+          console.warn('Defensive chrome.runtime stubbing failed:', e);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

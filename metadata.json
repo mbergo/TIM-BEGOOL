@@ -1,0 +1,6 @@
+{
+  "name": "ISP Telemetry & Kafka Simulation",
+  "description": "Interactive real-time topology simulation demonstrating Kafka telemetry throughput, RDK-B integration, and OPEX savings for tier-1 ISPs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
