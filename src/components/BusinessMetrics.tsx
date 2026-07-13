@@ -81,10 +81,16 @@ function KafkaThroughputWidget({ isLight, language, formatNumber }: KafkaThrough
       
       if (protocolMode === "tr069") {
         baseRate = Math.floor(baseRate * 1.35); // synchronous CWMP XML overhead
+      } else if (protocolMode === "snmp") {
+        baseRate = Math.floor(baseRate * 1.25); // legacy UDP polling overhead
+      } else if (protocolMode === "mqtt") {
+        baseRate = Math.floor(baseRate * 1.05); // standard lightweight pubsub
       } else if (protocolMode === "gnmi") {
         baseRate = Math.floor(baseRate * 1.15); // streaming spikes
       } else if (protocolMode === "otel") {
         baseRate = Math.floor(baseRate * 0.9);  // highly optimized OTel payload
+      } else if (protocolMode === "tr369") {
+        baseRate = Math.floor(baseRate * 0.95); // optimized USP protobuf push
       }
 
       // Live rate with minor fluctuation
@@ -492,10 +498,16 @@ export default function BusinessMetrics() {
       
       if (protocolMode === "tr069") {
         baseRate = Math.floor(baseRate * 1.35); // SOAP CWMP XML overhead
+      } else if (protocolMode === "snmp") {
+        baseRate = Math.floor(baseRate * 1.25); // legacy UDP polling overhead
+      } else if (protocolMode === "mqtt") {
+        baseRate = Math.floor(baseRate * 1.05); // standard lightweight pubsub
       } else if (protocolMode === "gnmi") {
         baseRate = Math.floor(baseRate * 1.15); // streaming spikes
       } else if (protocolMode === "otel") {
         baseRate = Math.floor(baseRate * 0.9);  // optimal OTel push
+      } else if (protocolMode === "tr369") {
+        baseRate = Math.floor(baseRate * 0.95); // optimized USP protobuf push
       }
 
       const rateFluctuation = Math.floor(Math.random() * 10000 - 5000);

@@ -35,6 +35,7 @@ export default function PipelineArchitectureController() {
   const isLight = theme === "light";
   const [activeTab, setActiveTab] = useState<"architecture" | "protocols" | "remediation">("architecture");
   const [remediationFeedback, setRemediationFeedback] = useState<string | null>(null);
+  const [simulationMode, setSimulationMode] = useState<"raw-landing" | "edge-filtered">("edge-filtered");
 
   // Dynamic backpressure calculations based on active selections
   useEffect(() => {
@@ -42,14 +43,18 @@ export default function PipelineArchitectureController() {
 
     // After Kafka is heavily congested because of junk data ingestion
     if (filterBarrier === "after-kafka") {
-      baseBackpressure += 54;
+      baseBackpressure += 34;
+    }
+
+    if (simulationMode === "raw-landing") {
+      baseBackpressure += 30;
     }
 
     // Protocol overheads
     if (protocolMode === "tr069") {
-      baseBackpressure += 28; // legacy XML overhead
+      baseBackpressure += 20; // legacy XML overhead
     } else if (protocolMode === "gnmi") {
-      baseBackpressure += 14; // high frequency spikes
+      baseBackpressure += 10; // high frequency spikes
     } else if (protocolMode === "otel") {
       baseBackpressure -= 5;  // highly optimized OTel structure
     } else if (protocolMode === "tr369") {
@@ -59,7 +64,7 @@ export default function PipelineArchitectureController() {
     // Ensure range is bounded
     const finalValue = Math.max(4, Math.min(98, baseBackpressure));
     setBackpressureValue(finalValue);
-  }, [filterBarrier, protocolMode, setBackpressureValue]);
+  }, [filterBarrier, protocolMode, simulationMode, setBackpressureValue]);
 
   // Multilingual text dictionary
   const dict = {
@@ -79,10 +84,18 @@ export default function PipelineArchitectureController() {
       // Filter Barrier section
       barrier_title: "Data Filtering Strategy",
       barrier_desc: "Filter non-Beegol CPE models to prevent Databricks congestion & high cloud costs.",
-      barrier_before: "Before Kafka (Optimized Edge)",
-      barrier_before_desc: "Apache NiFi / OTel agents filter out non-Beegol CPEs at the edge. Only target models reach Kafka.",
-      barrier_after: "After Kafka (Ingress Databricks)",
-      barrier_after_desc: "TIM dumps ALL CPE models into Kafka. Databricks must parse every single payload to discard junk data.",
+      barrier_before: "Pre-Kafka Filtering (Optimized Edge)",
+      barrier_before_desc: "Filter non-Beegol CPEs at the edge using Apache NiFi. Prevents ingestion overhead, ensuring maximum speed and minimal storage costs.",
+      barrier_after: "Post-Kafka Filtering (Post-Ingest)",
+      barrier_after_desc: "TIM streams raw metrics from all CPEs into Kafka. Databricks must parse and filter all payloads, bloating storage and lagging ingestion speed.",
+
+      // Simulation mode
+      sim_mode_title: "Datalake Landing Strategy Mode",
+      sim_mode_desc: "Compare direct landing of raw, uncompressed telemetry versus optimized, pre-filtered streams.",
+      raw_landing_label: "Raw Datalake Landing (All Data)",
+      raw_landing_desc: "Direct stream. Central cloud compute instances must dynamically scale and write unoptimized files, leading to massive write latency and exorbitant VM processing costs.",
+      edge_filtered_label: "Edge-Filtered Processing",
+      edge_filtered_desc: "Only Beegol-validated, structured events are committed. Avoids write-amplification bottlenecks and keeps database compute costs ultra low.",
       
       // Impact badges
       optimized: "Optimized Ingest",
@@ -133,10 +146,18 @@ export default function PipelineArchitectureController() {
       // Filter Barrier section
       barrier_title: "Estratégia de Filtragem de Dados",
       barrier_desc: "Filtre modelos de CPE que não possuem Beegol para evitar congestionamento e custos altos.",
-      barrier_before: "Antes do Kafka (Filtro Inteligente na Borda)",
-      barrier_before_desc: "Apache NiFi ou agentes OTel filtram CPEs na borda. Apenas os modelos desejados entram no Kafka.",
-      barrier_after: "Depois do Kafka (Filtro no Databricks)",
-      barrier_after_desc: "TIM joga TODOS os modelos no Kafka. O Databricks precisa ler carga por carga para descartar o lixo.",
+      barrier_before: "Filtragem Pré-Kafka (Borda Otimizada)",
+      barrier_before_desc: "Filtra CPEs que não possuem Beegol na borda com Apache NiFi. Evita sobrecarga de ingestão, garantindo velocidade máxima e custos mínimos de armazenamento.",
+      barrier_after: "Filtragem Pós-Kafka (Pós-Ingestão)",
+      barrier_after_desc: "TIM envia todas as métricas brutas no Kafka. O Databricks precisa ler e processar tudo antes de descartar, inflando o armazenamento e atrasando a velocidade.",
+
+      // Simulation mode
+      sim_mode_title: "Estratégia de Destino do Datalake",
+      sim_mode_desc: "Alterne entre gravar telemetria bruta não otimizada ou fluxos pré-filtrados para otimizar faturamento e latência de escrita.",
+      raw_landing_label: "Gravação Bruta no Datalake (Tudo)",
+      raw_landing_desc: "Fluxo direto. Máquinas de processamento em nuvem precisam escalar continuamente e tratar arquivos pesados, causando gargalos de gravação e faturamento exorbitante.",
+      edge_filtered_label: "Processamento Filtrado na Borda",
+      edge_filtered_desc: "Apenas eventos validados de CPE chegam ao datalake. Minimiza o congestionamento de escrita e mantém o custo operacional ultrabaixo.",
       
       // Impact badges
       optimized: "Ingestão Otimizada",
@@ -187,10 +208,18 @@ export default function PipelineArchitectureController() {
       // Filter Barrier section
       barrier_title: "Strategia di Filtraggio dei Dati",
       barrier_desc: "Filtra i modelli CPE non Beegol per prevenire il sovraccarico di Databricks e ridurre i costi cloud.",
-      barrier_before: "Prima di Kafka (Filtro Edge)",
-      barrier_before_desc: "Apache NiFi / agenti OTel filtrano i CPE non Beegol all'edge. Solo i modelli desiderati entrano in Kafka.",
-      barrier_after: "Dopo Kafka (Filtro Databricks)",
-      barrier_after_desc: "TIM invia TUTTI i modelli CPE in Kafka. Databricks deve ispezionare ogni payload per scartare i dati inutili.",
+      barrier_before: "Filtraggio Pre-Kafka (Edge Ottimizzato)",
+      barrier_before_desc: "Filtra i CPE non Beegol all'edge tramite Apache NiFi. Previene il sovraccarico di ingestione, garantendo la massima velocità e costi minimi di archiviazione.",
+      barrier_after: "Filtraggio Post-Kafka (Post-Ingestione)",
+      barrier_after_desc: "TIM invia tutte le metriche grezze in Kafka. Databricks deve analizzare e filtrare ogni payload, aumentando i costi di archiviazione e rallentando la velocità.",
+
+      // Simulation mode
+      sim_mode_title: "Strategia di Destinazione Datalake",
+      sim_mode_desc: "Scegli tra il salvataggio di telemetria grezza o flussi pre-filtrati per ottimizzare l'I/O e i costi di calcolo Databricks.",
+      raw_landing_label: "Salvataggio Grezzo nel Datalake (Tutti i dati)",
+      raw_landing_desc: "Flusso diretto. I server cloud devono continuamente scalare e scrivere file non ottimizzati, causando un'alta latenza di scrittura e costi computazionali astronomici.",
+      edge_filtered_label: "Elaborazione Filtrata all'Edge",
+      edge_filtered_desc: "Vengono scritti solo i dati CPE validati da Beegol. Riduce la congestione delle scritture sul disco e abbatte le spese operative dei database.",
       
       // Impact badges
       optimized: "Ingestione Ottimizzata",
@@ -270,9 +299,35 @@ export default function PipelineArchitectureController() {
   const totalCPECount = "2,500,000";
   const beegolSupportedCount = "500,000";
 
-  // Est stats based on filtering
-  const estimatedMsgRate = filterBarrier === "before-kafka" ? "360,000" : "1,842,500";
-  const estimatedCost = filterBarrier === "before-kafka" ? "$4,500/mo" : "$22,800/mo";
+  // Est stats based on filtering and landing simulation mode
+  const estimatedMsgRate = simulationMode === "raw-landing" ? "2,150,000" : (filterBarrier === "before-kafka" ? "360,000" : "1,842,500");
+  const estimatedCost = simulationMode === "raw-landing"
+    ? "$28,400/mo"
+    : filterBarrier === "before-kafka" ? "$4,500/mo" : "$22,800/mo";
+
+  // Storage Metrics
+  const dailyStorageVolume = simulationMode === "raw-landing"
+    ? "9.2 TB"
+    : filterBarrier === "before-kafka" ? "1.2 TB" : "6.1 TB";
+  const monthlyStorageCost = simulationMode === "raw-landing"
+    ? "$2,680"
+    : filterBarrier === "before-kafka" ? "$350" : "$1,780";
+  const annualStorageEstimate = simulationMode === "raw-landing"
+    ? "$32,160"
+    : filterBarrier === "before-kafka" ? "$4,200" : "$21,360";
+
+  // Ingestion Speed Metrics
+  const networkParsingSpeed = simulationMode === "raw-landing"
+    ? "192.4 ms"
+    : filterBarrier === "before-kafka" ? "2.4 ms" : "84.2 ms";
+  const endToEndLatency = simulationMode === "raw-landing"
+    ? "2,840ms (High Lag)"
+    : filterBarrier === "before-kafka" ? "under 45ms (Real-time)" : "1,240ms (High Lag)";
+
+  // Additional Latency / Compute metrics for display
+  const computeBillCost = simulationMode === "raw-landing" ? "$24,500/mo" : "$1,850/mo";
+  const storageLatencyScore = simulationMode === "raw-landing" ? "192.4 ms (Heavy I/O)" : "1.8 ms (Optimized)";
+
   const isBackpressureCritical = backpressureValue > 45;
 
   return (
@@ -407,7 +462,7 @@ export default function PipelineArchitectureController() {
                   setFilterBarrier("before-kafka");
                   const event = new CustomEvent("syslog-event", {
                     detail: {
-                      message: "[PIPELINE] Filtering barrier shifted to BEFORE KAFKA (Edge Filtering via NiFi). Non-Beegol models discarded at source.",
+                      message: "[PIPELINE] Filtering barrier shifted to PRE-KAFKA FILTERING (Edge Filtering via NiFi). Non-Beegol models discarded at source.",
                       level: "info"
                     }
                   });
@@ -447,7 +502,7 @@ export default function PipelineArchitectureController() {
                   setFilterBarrier("after-kafka");
                   const event = new CustomEvent("syslog-event", {
                     detail: {
-                      message: "[PIPELINE] ALERT: Filtering barrier shifted to AFTER KAFKA (Post-Ingest Databricks). 1.8M msg/s hitting Kafka. High database backpressure detected.",
+                      message: "[PIPELINE] ALERT: Filtering barrier shifted to POST-KAFKA FILTERING (Post-Ingest Databricks). 1.8M msg/s hitting Kafka. High database backpressure detected.",
                       level: "danger"
                     }
                   });
@@ -481,6 +536,105 @@ export default function PipelineArchitectureController() {
                 </div>
               </button>
 
+            </div>
+
+            {/* Storage & Compute Datalake Landing Strategy Simulation Toggle */}
+            <div className={`p-4 rounded-xl border flex flex-col gap-3 transition-all ${
+              isLight ? "bg-slate-50 border-slate-200" : "bg-slate-900/10 border-slate-900/60"
+            }`}>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <Database size={15} className="text-sky-400 animate-pulse" />
+                  <h4 className={`text-xs font-mono font-black uppercase tracking-wider ${isLight ? "text-slate-800" : "text-sky-300"}`}>
+                    {text.sim_mode_title}
+                  </h4>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  {text.sim_mode_desc}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
+                {/* Mode A: Raw Datalake Landing */}
+                <button
+                  onClick={() => {
+                    setSimulationMode("raw-landing");
+                    const event = new CustomEvent("syslog-event", {
+                      detail: {
+                        message: "[SIMULATOR] Strategy toggled to RAW DATALAKE LANDING. Ingesting raw, unindexed files forces high disk latency and major compute bills for server cluster querying.",
+                        level: "warning"
+                      }
+                    });
+                    window.dispatchEvent(event);
+                  }}
+                  className={`p-3 rounded-xl border text-left flex flex-col gap-2 transition-all cursor-pointer ${
+                    simulationMode === "raw-landing"
+                      ? "border-amber-500 bg-amber-500/[0.02] ring-2 ring-amber-500/20"
+                      : isLight
+                      ? "border-slate-200 hover:border-slate-300 bg-white"
+                      : "border-slate-900 hover:border-slate-800 bg-slate-950/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-black uppercase text-amber-500 flex items-center gap-1.5">
+                      <Database size={13} />
+                      {text.raw_landing_label}
+                    </span>
+                    {simulationMode === "raw-landing" && (
+                      <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[8px] font-mono px-2 py-0.5 rounded-full font-bold">
+                        SIM MODE ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10.5px] text-slate-400 leading-relaxed">
+                    {text.raw_landing_desc}
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-slate-500/10 flex justify-between text-[9.5px] font-mono text-slate-500">
+                    <span>Databricks Compute: <strong className="text-amber-400">$24,500/mo</strong></span>
+                    <span>Write I/O: <strong className="text-amber-400">192.4ms</strong></span>
+                  </div>
+                </button>
+
+                {/* Mode B: Edge-Filtered Processing */}
+                <button
+                  onClick={() => {
+                    setSimulationMode("edge-filtered");
+                    const event = new CustomEvent("syslog-event", {
+                      detail: {
+                        message: "[SIMULATOR] Strategy toggled to EDGE-FILTERED PROCESSING. High-value telemetry only. Thread writes scale linearly, saving compute.",
+                        level: "success"
+                      }
+                    });
+                    window.dispatchEvent(event);
+                  }}
+                  className={`p-3 rounded-xl border text-left flex flex-col gap-2 transition-all cursor-pointer ${
+                    simulationMode === "edge-filtered"
+                      ? "border-emerald-500 bg-emerald-500/[0.02] ring-2 ring-emerald-500/20"
+                      : isLight
+                      ? "border-slate-200 hover:border-slate-300 bg-white"
+                      : "border-slate-900 hover:border-slate-800 bg-slate-950/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-black uppercase text-emerald-400 flex items-center gap-1.5">
+                      <ShieldCheck size={13} />
+                      {text.edge_filtered_label}
+                    </span>
+                    {simulationMode === "edge-filtered" && (
+                      <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[8px] font-mono px-2 py-0.5 rounded-full font-bold">
+                        ACTIVE (RECOMMENDED)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10.5px] text-slate-400 leading-relaxed">
+                    {text.edge_filtered_desc}
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-slate-500/10 flex justify-between text-[9.5px] font-mono text-slate-500">
+                    <span>Databricks Compute: <strong className="text-emerald-400">$1,850/mo</strong></span>
+                    <span>Write I/O: <strong className="text-emerald-400">1.8ms</strong></span>
+                  </div>
+                </button>
+              </div>
             </div>
 
             {/* Simulated Live Impact Gauges */}
@@ -541,6 +695,106 @@ export default function PipelineArchitectureController() {
                 </div>
 
               </div>
+
+              {/* Data Storage & Speed Breakdown Grid */}
+              <div className="mt-4 pt-4 border-t border-slate-500/10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Storage Cost Panel */}
+                <div className="flex flex-col bg-slate-950/60 p-3 rounded-xl border border-slate-900/80">
+                  <span className="text-[10px] font-mono text-slate-500 uppercase flex items-center gap-1.5">
+                    <Database size={11} className="text-sky-400" />
+                    {language === "pt" ? "Armazenamento & Custos Cloud" : language === "it" ? "Costi & Archiviazione Dati" : "Data Storage & Compute Footprint"}
+                  </span>
+                  
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-mono text-slate-500">{language === "pt" ? "Volume Diário" : "Daily Volume"}</span>
+                      <span className={`text-sm font-mono font-black ${simulationMode === "raw-landing" ? "text-amber-400" : filterBarrier === "before-kafka" ? "text-emerald-400" : "text-rose-450"}`}>
+                        {dailyStorageVolume}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-mono text-slate-500">{language === "pt" ? "Custo Mensal" : "Storage Bill"}</span>
+                      <span className="text-sm font-mono font-black text-slate-200">
+                        {monthlyStorageCost}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Added Compute Bill Cost */}
+                  <div className="flex justify-between items-center mt-2.5 pt-2 border-t border-slate-500/10 text-[9.5px] font-mono">
+                    <span className="text-slate-500">{language === "pt" ? "Custo Computacional" : "Databricks Compute:"}</span>
+                    <span className={`font-black ${simulationMode === "raw-landing" ? "text-amber-400" : "text-emerald-400"}`}>
+                      {computeBillCost}
+                    </span>
+                  </div>
+
+                  {simulationMode === "raw-landing" ? (
+                    <div className="mt-2.5 bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-amber-400 font-bold">✗ Databricks Bloat:</span>
+                      <span className="text-[10.5px] font-mono font-black text-amber-300">+{annualStorageEstimate}/yr excess</span>
+                    </div>
+                  ) : filterBarrier === "before-kafka" ? (
+                    <div className="mt-2.5 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-emerald-400 font-bold">✓ Storage Savings:</span>
+                      <span className="text-[10.5px] font-mono font-black text-emerald-300">-{annualStorageEstimate}/yr saved</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2.5 bg-rose-500/10 border border-rose-500/20 px-2 py-1.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-rose-400 font-bold">✗ Storage Bloat:</span>
+                      <span className="text-[10.5px] font-mono font-black text-rose-300">+{annualStorageEstimate}/yr excess</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Ingestion Speed Panel */}
+                <div className="flex flex-col bg-slate-950/60 p-3 rounded-xl border border-slate-900/80">
+                  <span className="text-[10px] font-mono text-slate-500 uppercase flex items-center gap-1.5">
+                    <Activity size={11} className="text-indigo-400" />
+                    {language === "pt" ? "Velocidade & Latência de Escrita" : language === "it" ? "Velocità di Ingestione & Parser" : "Storage Latency & Ingestion Metrics"}
+                  </span>
+                  
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-mono text-slate-500">{language === "pt" ? "Atraso do Parser" : "Parsing Latency"}</span>
+                      <span className={`text-sm font-mono font-black ${simulationMode === "raw-landing" ? "text-amber-400" : filterBarrier === "before-kafka" ? "text-emerald-400" : "text-rose-450"}`}>
+                        {networkParsingSpeed}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-mono text-slate-500">{language === "pt" ? "Latência Fim-a-Fim" : "E2E Latency"}</span>
+                      <span className="text-sm font-mono font-black text-slate-200">
+                        {endToEndLatency}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Added Storage Latency Score */}
+                  <div className="flex justify-between items-center mt-2.5 pt-2 border-t border-slate-500/10 text-[9.5px] font-mono">
+                    <span className="text-slate-500">Storage Latency Score:</span>
+                    <span className={`font-black ${simulationMode === "raw-landing" ? "text-amber-400 animate-pulse" : "text-emerald-400"}`}>
+                      {storageLatencyScore}
+                    </span>
+                  </div>
+
+                  {simulationMode === "raw-landing" ? (
+                    <div className="mt-2.5 bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-amber-400 font-bold">✗ High Disk I/O Lag:</span>
+                      <span className="text-[10.5px] font-mono font-black text-amber-300">Unindexed Block Spikes</span>
+                    </div>
+                  ) : filterBarrier === "before-kafka" ? (
+                    <div className="mt-2.5 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-emerald-400 font-bold">✓ Thread Utilization:</span>
+                      <span className="text-[10.5px] font-mono font-black text-emerald-300">Optimal Stream Delivery</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2.5 bg-rose-500/10 border border-rose-500/20 px-2 py-1.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-rose-400 font-bold">✗ Parsing Congestion:</span>
+                      <span className="text-[10.5px] font-mono font-black text-rose-300">Databricks Lag Spike</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
         )}

@@ -23,7 +23,8 @@ import {
   Hand,
   Layers,
   Network,
-  Cable
+  Cable,
+  Terminal as TerminalIcon
 } from "lucide-react";
 import { GlossaryTerm } from "./GlossaryTerm";
 
@@ -379,10 +380,16 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
       
       if (protocolMode === "tr069") {
         baseline = Math.floor(baseline * 1.35); // SOAP CWMP XML overhead
+      } else if (protocolMode === "snmp") {
+        baseline = Math.floor(baseline * 1.25); // legacy UDP polling overhead
+      } else if (protocolMode === "mqtt") {
+        baseline = Math.floor(baseline * 1.05); // standard lightweight pubsub
       } else if (protocolMode === "gnmi") {
         baseline = Math.floor(baseline * 1.15); // streaming spikes
       } else if (protocolMode === "otel") {
         baseline = Math.floor(baseline * 0.9);  // optimal telemetry agents
+      } else if (protocolMode === "tr369") {
+        baseline = Math.floor(baseline * 0.95); // optimized USP protobuf push
       }
 
       const fluctuation = Math.floor(Math.random() * 24000 - 12000);
@@ -1299,6 +1306,26 @@ export default function NetworkSimulation({ activeStepId }: NetworkSimulationPro
                     <span className="flex items-center gap-1.5">
                       <GlossaryTerm word={node.acronym} />
                       <span className={`text-[7px] font-medium font-sans ${isLight ? "text-slate-500" : "text-slate-400"}`}>{node.label}</span>
+                      
+                      {/* Secure Remote Appliance CLI trigger badge shortcut */}
+                      {["home-gateway", "iot-mesh", "stb-tv", "enterprise-edge", "gpon-ont", "olt-chassis", "vccap-node"].includes(node.id) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const event = new CustomEvent("open-appliance-terminal", {
+                              detail: { nodeId: node.id }
+                            });
+                            window.dispatchEvent(event);
+                          }}
+                          className="ml-1 px-1.5 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center gap-0.5 font-mono text-[7px] font-black tracking-widest uppercase transition-all duration-150 pointer-events-auto cursor-pointer shadow border border-emerald-400/20 active:scale-90 hover:scale-105"
+                          title="Open Secure Remote CLI Terminal for this device"
+                        >
+                          <TerminalIcon size={7} className="text-slate-950 animate-pulse" />
+                          <span>CLI</span>
+                        </button>
+                      )}
                     </span>
                   </div>
                 </div>

@@ -16,12 +16,15 @@ import {
   Sun, 
   Moon,
   Briefcase,
-  HelpCircle
+  HelpCircle,
+  Terminal as TerminalIcon
 } from "lucide-react";
 import DeveloperResume from "./components/DeveloperResume";
 import TelemetryTicker from "./components/TelemetryTicker";
 import WalkthroughTour from "./components/WalkthroughTour";
 import PipelineArchitectureController from "./components/PipelineArchitectureController";
+import ProtocolResourceVisualizer from "./components/ProtocolResourceVisualizer";
+import NetworkApplianceTerminal from "./components/NetworkApplianceTerminal";
 
 export default function App() {
   const { language, setLanguage, theme, setTheme, t } = useApp();
@@ -31,6 +34,20 @@ export default function App() {
   const [isTourActive, setIsTourActive] = useState(() => {
     return localStorage.getItem("beegol_walkthrough_completed") !== "true";
   });
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [terminalNodeId, setTerminalNodeId] = useState("home-gateway");
+
+  useEffect(() => {
+    const handleOpenTerminal = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.nodeId) {
+        setTerminalNodeId(customEvent.detail.nodeId);
+      }
+      setIsTerminalOpen(true);
+    };
+    window.addEventListener("open-appliance-terminal", handleOpenTerminal);
+    return () => window.removeEventListener("open-appliance-terminal", handleOpenTerminal);
+  }, []);
 
   const steps = getLocalizedPipelineSteps(language);
   const activeIndex = steps.findIndex((s) => s.id === activeStepId);
@@ -86,7 +103,7 @@ export default function App() {
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <span className={`text-base font-black tracking-widest uppercase ${isLight ? "text-slate-900" : "text-white"}`}>
-                BEERGO'L AURORAOPS
+                BEERGO'L AURORA OPS
               </span>
               <span className="text-xs font-bold font-mono bg-sky-500/15 text-sky-500 dark:text-sky-400 px-2 py-0.5 rounded border border-sky-500/20">
                 {t("active_pipeline_badge")}
@@ -148,6 +165,19 @@ export default function App() {
           >
             <Briefcase size={13} />
             <span>DEV RESUME</span>
+          </button>
+
+          {/* Remote Terminal Button */}
+          <button
+            onClick={() => {
+              setTerminalNodeId("home-gateway");
+              setIsTerminalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-650 dark:text-emerald-400 border border-emerald-500/30 text-xs font-mono font-black transition-all cursor-pointer shadow-md"
+            title="Open Remote Appliance Remediation Terminal"
+          >
+            <TerminalIcon size={13} className="text-emerald-500 animate-pulse" />
+            <span>REMOTE CLI TERMINAL</span>
           </button>
 
           {/* Interactive Light / Dark Theme Switcher */}
@@ -297,8 +327,9 @@ export default function App() {
           </div>
 
           {/* Real-time Ingestion Filter Strategy & Multi-Protocol Emulator */}
-          <div className="shrink-0">
+          <div className="shrink-0 flex flex-col gap-4">
             <PipelineArchitectureController />
+            <ProtocolResourceVisualizer />
           </div>
 
           {/* Section C: Dual Diagnostic & Logging Consoles (Bottom Row) */}
@@ -328,6 +359,13 @@ export default function App() {
 
       {/* Guided Walkthrough Tour */}
       <WalkthroughTour active={isTourActive} onClose={() => setIsTourActive(false)} />
+
+      {/* Network Appliance Terminal Remote CLI Modal */}
+      <NetworkApplianceTerminal 
+        isOpen={isTerminalOpen} 
+        onClose={() => setIsTerminalOpen(false)} 
+        initialNodeId={terminalNodeId} 
+      />
     </div>
   );
 }

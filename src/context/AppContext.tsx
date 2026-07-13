@@ -3,7 +3,19 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 export type Language = "en" | "pt" | "it";
 export type Theme = "dark" | "light";
 export type FilterBarrier = "before-kafka" | "after-kafka";
-export type ProtocolMode = "tr069" | "tr369" | "mqtt" | "gnmi" | "otel";
+export type ProtocolMode = "tr069" | "tr369" | "mqtt" | "gnmi" | "otel" | "snmp";
+
+export interface VirtualSensor {
+  id: string;
+  name: string;
+  unit: string;
+  value: string;
+  targetAppliance: "user-cpe" | "access-transport" | "control-broker" | "databricks-etl";
+  protoFieldName: string;
+  protoFieldType: string;
+  protoFieldNumber: number;
+  addedCost: number; // additional monthly storage overhead in USD
+}
 
 interface AppContextType {
   language: Language;
@@ -20,6 +32,10 @@ interface AppContextType {
   setActiveRemediation: (action: string | null) => void;
   backpressureValue: number;
   setBackpressureValue: (val: number) => void;
+  // Dynamic Telemetry Schema states
+  virtualSensors: VirtualSensor[];
+  addVirtualSensor: (sensor: VirtualSensor) => void;
+  removeVirtualSensor: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -700,6 +716,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeRemediation, setActiveRemediation] = useState<string | null>(null);
   const [backpressureValue, setBackpressureValue] = useState<number>(14);
 
+  // Telemetry Schema state with pre-configured templates
+  const [virtualSensors, setVirtualSensors] = useState<VirtualSensor[]>([
+    {
+      id: "preset-laser-temp",
+      name: "GPON Transceiver Laser Temp",
+      unit: "°C",
+      value: "41.8",
+      targetAppliance: "access-transport",
+      protoFieldName: "laser_temperature_c",
+      protoFieldType: "float",
+      protoFieldNumber: 9,
+      addedCost: 12
+    },
+    {
+      id: "preset-wifi-cochannel",
+      name: "6GHz Co-Channel Overlap",
+      unit: "Index",
+      value: "3",
+      targetAppliance: "user-cpe",
+      protoFieldName: "wifi_6ghz_cochannel_overlap_index",
+      protoFieldType: "int32",
+      protoFieldNumber: 10,
+      addedCost: 8
+    }
+  ]);
+
+  const addVirtualSensor = (sensor: VirtualSensor) => {
+    setVirtualSensors((prev) => [...prev, sensor]);
+  };
+
+  const removeVirtualSensor = (id: string) => {
+    setVirtualSensors((prev) => prev.filter((s) => s.id !== id));
+  };
+
   // Load from localStorage if present
   useEffect(() => {
     const savedTheme = localStorage.getItem("beegol_theme") as Theme;
@@ -738,7 +788,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeRemediation,
         setActiveRemediation,
         backpressureValue,
-        setBackpressureValue
+        setBackpressureValue,
+        virtualSensors,
+        addVirtualSensor,
+        removeVirtualSensor
       }}
     >
       {children}
